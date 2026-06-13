@@ -231,7 +231,8 @@ async def unwarn(interaction: discord.Interaction, warn_id: int):
 # -----------------------------
 # BOT START
 # -----------------------------
-bot.run("TOKEN")
+import os
+bot.run(os.environ["TOKEN"])
 
 # -----------------------------
 # INTENTS
