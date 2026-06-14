@@ -149,33 +149,11 @@ class TicketModal(Modal):
             f"✅ Ticket erstellt: {channel.mention}",
             ephemeral=True
         )
-    # ✅ EMBED MUSS AUF DIESER EINRÜCKUNG SEIN
-    embed = discord.Embed(
-        title=f"{self.ticket_type} Ticket",
-        color=discord.Color.green()
-    )
-
-    embed.add_field(name="Von", value=user.mention, inline=False)
-
-    # ✅ Wenn Bewerbung → spezielle Felder anzeigen
-    if self.ticket_type == "Bewerbung":
-        embed.add_field(name="Name", value=self.name.value, inline=False)
-        embed.add_field(name="Alter", value=self.alter.value, inline=False)
-        embed.add_field(name="Warum beitreten?", value=self.grund.value, inline=False)
-    else:
-        embed.add_field(name="Anliegen", value=self.frage1.value, inline=False)
-        embed.add_field(name="Details", value=self.frage2.value or "Keine weiteren Angaben", inline=False)
-
-    await channel.send(
-        content=f"{user.mention} {support_role.mention}",
-        embed=embed,
-        view=CloseTicketView()
-    )
-
-    await interaction.response.send_message(
-        f"✅ Ticket erstellt: {channel.mention}",
-        ephemeral=True
-    )
+        
+        await interaction.response.send_message(
+            f"✅ Ticket erstellt: {channel.mention}",
+            ephemeral=True
+        )
 
 # -------------------------
 # DROPDOWN
