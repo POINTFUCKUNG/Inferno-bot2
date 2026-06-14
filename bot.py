@@ -3,14 +3,9 @@ from discord.ext import commands
 from discord import app_commands
 from datetime import timedelta
 import sqlite3
+from discord.ui import View, Button, Select, Modal, TextInput
+import discord
 
-TOKEN = "TOKEN"
-from discord.ext import commands
-from discord import app_commands
-from datetime import timedelta
-import sqlite3
-
-TOKEN = "TOKEN"
 
 # -----------------------------
 # INTENTS
@@ -38,77 +33,134 @@ CREATE TABLE IF NOT EXISTS warnings (
 db.commit()
 
 
-# -----------------------------
-# TICKET SYSTEM
-# -----------------------------
-class CloseTicketView(discord.ui.View):
+# ==================================================
+#                 TICKET SYSTEM
+# ==================================================
+
+SUPPORT_ROLE_ID = 123456789012345678  # <-- HIER deine Support Rollen ID einfügen
+CATEGORY_NAME = "📨 Tickets"
+
+
+# -------------------------
+# CLOSE BUTTON
+# -------------------------
+class CloseTicketView(View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @discord.ui.button(
-        label="🔒 Ticket schließen",
-        style=discord.ButtonStyle.red,
-        custom_id="close_ticket"
-    )
-    async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(label="🔒 Ticket schließen", style=discord.ButtonStyle.red)
+    async def close_ticket(self, interaction: discord.Interaction, button: Button):
         await interaction.response.send_message("Ticket wird geschlossen...", ephemeral=True)
         await interaction.channel.delete()
 
 
-class TicketSelect(discord.ui.Select):
-    def __init__(self):
-        options = [
-            discord.SelectOption(label="Support", emoji="🎧"),
-            discord.SelectOption(label="Bewerbung", emoji="📝"),
-            discord.SelectOption(label="Entbannung", emoji="🔓"),
-        ]
+# -------------------------
+# MODAL (FORMULAR)
+# -------------------------
+class TicketModal(Modal):
 
-        super().__init__(
-            placeholder="Wähle eine Ticket-Kategorie",
-            options=options,
-            custom_id="ticket_select"
+    def __init__(self, ticket_type):
+        super().__init__(title=f"{ticket_type} Ticket")
+        self.ticket_type = ticket_type
+
+        self.frage1 = TextInput(
+            label="Beschreibe dein Anliegen",
+            style=discord.TextStyle.paragraph,
+            required=True,
+            max_length=500
         )
 
-    async def callback(self, interaction: discord.Interaction):
+        self.frage2 = TextInput(
+            label="Weitere Informationen",
+            style=discord.TextStyle.paragraph,
+            required=False,
+            max_length=500
+        )
+
+        self.add_item(self.frage1)
+        self.add_item(self.frage2)
+
+    async def on_submit(self, interaction: discord.Interaction):
+
         guild = interaction.guild
         user = interaction.user
-        category_name = "Tickets"
 
-        category = discord.utils.get(guild.categories, name=category_name)
+        # Kategorie holen oder erstellen
+        category = discord.utils.get(guild.categories, name=CATEGORY_NAME)
         if category is None:
-            category = await guild.create_category(category_name)
+            category = await guild.create_category(CATEGORY_NAME)
 
+        support_role = guild.get_role(SUPPORT_ROLE_ID)
+
+        # Nur 1 Ticket pro User pro Typ
+        for channel in category.channels:
+            if channel.name == f"{self.ticket_type.lower()}-{user.id}":
+                await interaction.response.send_message("Du hast bereits ein Ticket offen!", ephemeral=True)
+                return
+
+        # Channel erstellen
         channel = await guild.create_text_channel(
-            name=f"{self.values[0].lower()}-{user.name}",
+            name=f"{self.ticket_type.lower()}-{user.id}",
             category=category
         )
 
         await channel.set_permissions(guild.default_role, read_messages=False)
         await channel.set_permissions(user, read_messages=True, send_messages=True)
+        await channel.set_permissions(support_role, read_messages=True, send_messages=True)
 
         embed = discord.Embed(
-            title=f"{self.values[0]} Ticket",
-            description="Beschreibe dein Anliegen.",
+            title=f"{self.ticket_type} Ticket",
             color=discord.Color.green()
         )
 
-        await channel.send(embed=embed, view=CloseTicketView())
+        embed.add_field(name="Von", value=user.mention, inline=False)
+        embed.add_field(name="Anliegen", value=self.frage1.value, inline=False)
+        embed.add_field(name="Details", value=self.frage2.value or "Keine weiteren Angaben", inline=False)
 
-        await interaction.response.send_message(
-            f"Ticket erstellt: {channel.mention}",
-            ephemeral=True
+        await channel.send(content=f"{user.mention} {support_role.mention}", embed=embed, view=CloseTicketView())
+        await interaction.response.send_message(f"✅ Ticket erstellt: {channel.mention}", ephemeral=True)
+
+
+# -------------------------
+# DROPDOWN
+# -------------------------
+class TicketSelect(Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(label="🐞 Bug melden", description="Melde technische Fehler"),
+            discord.SelectOption(label="📋 Team Bewerbung", description="Bewirb dich für das Team"),
+            discord.SelectOption(label="🔓 Entbannungsantrag", description="Stelle einen Antrag auf Entbannung"),
+        ]
+
+        super().__init__(
+            placeholder="Wähle eine Ticket-Kategorie...",
+            options=options
         )
 
+    async def callback(self, interaction: discord.Interaction):
 
-class TicketView(discord.ui.View):
+        if self.values[0] == "🐞 Bug melden":
+            await interaction.response.send_modal(TicketModal("Bug"))
+
+        elif self.values[0] == "📋 Team Bewerbung":
+            await interaction.response.send_modal(TicketModal("Bewerbung"))
+
+        elif self.values[0] == "🔓 Entbannungsantrag":
+            await interaction.response.send_modal(TicketModal("Entbannung"))
+
+
+# -------------------------
+# VIEW
+# -------------------------
+class TicketView(View):
     def __init__(self):
         super().__init__(timeout=None)
         self.add_item(TicketSelect())
 
-
 # -----------------------------
 # EVENTS
 # -----------------------------
+
 @bot.event
 async def on_ready():
     bot.add_view(TicketView())
@@ -118,22 +170,34 @@ async def on_ready():
     print(f"Eingeloggt als {bot.user}")
 
 
+@bot.event
+async def on_error(event, *args, **kwargs):
+    logging.exception(f"Fehler bei Event: {event}")
+
+
 # -----------------------------
-# TICKET PANEL COMMAND
+# SLASH COMMANDS
 # -----------------------------
-@bot.tree.command(name="ticketpanel", description="Erstellt das Ticket Panel")
-@app_commands.checks.has_permissions(administrator=True)
+
+@bot.tree.command(name="ticketpanel", description="Öffnet das Ticket Panel")
 async def ticketpanel(interaction: discord.Interaction):
 
     embed = discord.Embed(
-        title="🎫 Ticketsystem",
-        description="Wähle unten eine Kategorie.",
-        color=discord.Color.blurple()
+        title="🎫 Support Ticket System",
+        description="""
+🐞 **Bug melden**
+→ Technische Fehler melden
+
+📋 **Team Bewerbung**
+→ Bewirb dich für das Team
+
+🔓 **Entbannungsantrag**
+→ Antrag auf Entbannung stellen
+""",
+        color=discord.Color.blue()
     )
 
-    await interaction.channel.send(embed=embed, view=TicketView())
-
-    await interaction.response.send_message("Ticket Panel erstellt.", ephemeral=True)
+    await interaction.response.send_message(embed=embed, view=TicketView())
 
 
 # -----------------------------
