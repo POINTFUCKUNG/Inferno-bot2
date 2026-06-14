@@ -63,42 +63,64 @@ class TicketModal(Modal):
         super().__init__(title=f"{ticket_type} Ticket")
         self.ticket_type = ticket_type
 
-        self.frage1 = TextInput(
-            label="Beschreibe dein Anliegen",
-            style=discord.TextStyle.paragraph,
-            required=True,
-            max_length=500
-        )
+        # ✅ Wenn Bewerbung gewählt wurde
+        if ticket_type == "Bewerbung":
 
-        self.frage2 = TextInput(
-            label="Weitere Informationen",
-            style=discord.TextStyle.paragraph,
-            required=False,
-            max_length=500
-        )
+            self.name = TextInput(
+                label="Wie heißt du?",
+                placeholder="Dein Name",
+                required=True,
+                max_length=100
+            )
 
-        self.add_item(self.frage1)
-        self.add_item(self.frage2)
+            self.alter = TextInput(
+                label="Wie alt bist du?",
+                placeholder="Dein Alter",
+                required=True,
+                max_length=3
+            )
+
+            self.grund = TextInput(
+                label="Warum willst du dem Team beitreten?",
+                style=discord.TextStyle.paragraph,
+                required=True,
+                max_length=500
+            )
+
+            self.add_item(self.name)
+            self.add_item(self.alter)
+            self.add_item(self.grund)
+
+        else:
+            # ✅ Für Bug & Entbannung bleibt es normal
+            self.frage1 = TextInput(
+                label="Beschreibe dein Anliegen",
+                style=discord.TextStyle.paragraph,
+                required=True,
+                max_length=500
+            )
+
+            self.frage2 = TextInput(
+                label="Weitere Informationen",
+                style=discord.TextStyle.paragraph,
+                required=False,
+                max_length=500
+            )
+
+            self.add_item(self.frage1)
+            self.add_item(self.frage2)
 
     async def on_submit(self, interaction: discord.Interaction):
 
         guild = interaction.guild
         user = interaction.user
 
-        # Kategorie holen oder erstellen
         category = discord.utils.get(guild.categories, name=CATEGORY_NAME)
         if category is None:
             category = await guild.create_category(CATEGORY_NAME)
 
         support_role = guild.get_role(SUPPORT_ROLE_ID)
 
-        # Nur 1 Ticket pro User pro Typ
-        for channel in category.channels:
-            if channel.name == f"{self.ticket_type.lower()}-{user.id}":
-                await interaction.response.send_message("Du hast bereits ein Ticket offen!", ephemeral=True)
-                return
-
-        # Channel erstellen
         channel = await guild.create_text_channel(
             name=f"{self.ticket_type.lower()}-{user.id}",
             category=category
@@ -114,13 +136,20 @@ class TicketModal(Modal):
         )
 
         embed.add_field(name="Von", value=user.mention, inline=False)
-        embed.add_field(name="Anliegen", value=self.frage1.value, inline=False)
-        embed.add_field(name="Details", value=self.frage2.value or "Keine weiteren Angaben", inline=False)
+
+        # ✅ Wenn Bewerbung → spezielle Felder anzeigen
+        if self.ticket_type == "Bewerbung":
+            embed.add_field(name="Name", value=self.name.value, inline=False)
+            embed.add_field(name="Alter", value=self.alter.value, inline=False)
+            embed.add_field(name="Warum beitreten?", value=self.grund.value, inline=False)
+
+        else:
+            embed.add_field(name="Anliegen", value=self.frage1.value, inline=False)
+            embed.add_field(name="Details", value=self.frage2.value or "Keine weiteren Angaben", inline=False)
 
         await channel.send(content=f"{user.mention} {support_role.mention}", embed=embed, view=CloseTicketView())
         await interaction.response.send_message(f"✅ Ticket erstellt: {channel.mention}", ephemeral=True)
-
-
+        
 # -------------------------
 # DROPDOWN
 # -------------------------
