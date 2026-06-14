@@ -1,4 +1,6 @@
 import discord
+from discord import guild
+from discord import user
 from discord.ext import commands
 from discord import app_commands
 from datetime import timedelta
@@ -121,10 +123,23 @@ class TicketModal(Modal):
 
         support_role = guild.get_role(SUPPORT_ROLE_ID)
 
-        channel = await guild.create_text_channel(
-            name=f"{self.ticket_type.lower()}-{user.id}",
-            category=category
-        )
+        # Emoji je nach Ticket Typ setzen
+if self.ticket_type == "Bug":
+    emoji = "🐞"
+elif self.ticket_type == "Bewerbung":
+    emoji = "📋"
+elif self.ticket_type == "Entbannung":
+    emoji = "🔓"
+else:
+    emoji = "🎫"
+
+# Username Discord-konform machen
+clean_name = user.name.lower().replace(" ", "-")
+
+channel = await guild.create_text_channel(
+    name=f"{emoji}-{self.ticket_type.lower()}-{clean_name}",
+    category=category
+)
 
         await channel.set_permissions(guild.default_role, read_messages=False)
         await channel.set_permissions(user, read_messages=True, send_messages=True)
@@ -149,7 +164,7 @@ class TicketModal(Modal):
 
         await channel.send(content=f"{user.mention} {support_role.mention}", embed=embed, view=CloseTicketView())
         await interaction.response.send_message(f"✅ Ticket erstellt: {channel.mention}", ephemeral=True)
-        
+
 # -------------------------
 # DROPDOWN
 # -------------------------
