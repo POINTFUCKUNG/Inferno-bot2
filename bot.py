@@ -114,36 +114,37 @@ class TicketModal(Modal):
 
     async def on_submit(self, interaction: discord.Interaction):
 
-        guild = interaction.guild
-        user = interaction.user
+    guild = interaction.guild
+    user = interaction.user
 
-        category = discord.utils.get(guild.categories, name=CATEGORY_NAME)
-        if category is None:
-            category = await guild.create_category(CATEGORY_NAME)
+    category = discord.utils.get(guild.categories, name=CATEGORY_NAME)
+    if category is None:
+        category = await guild.create_category(CATEGORY_NAME)
 
-        support_role = guild.get_role(SUPPORT_ROLE_ID)
+    support_role = guild.get_role(SUPPORT_ROLE_ID)
 
-        # Emoji je nach Ticket Typ setzen
-if self.ticket_type == "Bug":
-    emoji = "🐞"
-elif self.ticket_type == "Bewerbung":
-    emoji = "📋"
-elif self.ticket_type == "Entbannung":
-    emoji = "🔓"
-else:
-    emoji = "🎫"
+    # Emoji je nach Ticket Typ setzen
+    if self.ticket_type == "Bug":
+        emoji = "🐞"
+    elif self.ticket_type == "Bewerbung":
+        emoji = "📋"
+    elif self.ticket_type == "Entbannung":
+        emoji = "🔓"
+    else:
+        emoji = "🎫"
 
-# Username Discord-konform machen
-clean_name = user.name.lower().replace(" ", "-")
+    clean_name = user.name.lower().replace(" ", "-")
 
-channel = await guild.create_text_channel(
-    name=f"{emoji}-{self.ticket_type.lower()}-{clean_name}",
-    category=category
-)
+    channel = await guild.create_text_channel(
+        name=f"{emoji}-{self.ticket_type.lower()}-{clean_name}",
+        category=category
+    )
 
-        await channel.set_permissions(guild.default_role, read_messages=False)
-        await channel.set_permissions(user, read_messages=True, send_messages=True)
-        await channel.set_permissions(support_role, read_messages=True, send_messages=True)
+    await channel.set_permissions(guild.default_role, read_messages=False)
+    await channel.set_permissions(user, read_messages=True, send_messages=True)
+    await channel.set_permissions(support_role, read_messages=True, send_messages=True)
+        
+
 
         embed = discord.Embed(
             title=f"{self.ticket_type} Ticket",
