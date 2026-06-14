@@ -37,7 +37,7 @@ db.commit()
 #                 TICKET SYSTEM
 # ==================================================
 
-SUPPORT_ROLE_ID = 123456789012345678  # <-- HIER deine Support Rollen ID einfügen
+SUPPORT_ROLE_ID = 1515701293174362193  # <-- HIER deine Support Rollen ID einfügen
 CATEGORY_NAME = "📨 Tickets"
 
 
