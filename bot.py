@@ -65,28 +65,13 @@ class TicketModal(Modal):
         super().__init__(title=f"{ticket_type} Ticket")
         self.ticket_type = ticket_type
 
-        # ✅ Wenn Bewerbung gewählt wurde
         if ticket_type == "Bewerbung":
-
-            self.name = TextInput(
-                label="Wie heißt du?",
-                placeholder="Dein Name",
-                required=True,
-                max_length=100
-            )
-
-            self.alter = TextInput(
-                label="Wie alt bist du?",
-                placeholder="Dein Alter",
-                required=True,
-                max_length=3
-            )
-
+            self.name = TextInput(label="Wie heißt du?", required=True)
+            self.alter = TextInput(label="Wie alt bist du?", required=True)
             self.grund = TextInput(
                 label="Warum willst du dem Team beitreten?",
                 style=discord.TextStyle.paragraph,
-                required=True,
-                max_length=500
+                required=True
             )
 
             self.add_item(self.name)
@@ -94,56 +79,76 @@ class TicketModal(Modal):
             self.add_item(self.grund)
 
         else:
-            # ✅ Für Bug & Entbannung bleibt es normal
             self.frage1 = TextInput(
                 label="Beschreibe dein Anliegen",
                 style=discord.TextStyle.paragraph,
-                required=True,
-                max_length=500
+                required=True
             )
-
             self.frage2 = TextInput(
                 label="Weitere Informationen",
                 style=discord.TextStyle.paragraph,
-                required=False,
-                max_length=500
+                required=False
             )
 
             self.add_item(self.frage1)
             self.add_item(self.frage2)
 
-   async def on_submit(self, interaction: discord.Interaction):
+    async def on_submit(self, interaction: discord.Interaction):
 
-    guild = interaction.guild
-    user = interaction.user
+        guild = interaction.guild
+        user = interaction.user
 
-    category = discord.utils.get(guild.categories, name=CATEGORY_NAME)
-    if category is None:
-        category = await guild.create_category(CATEGORY_NAME)
+        category = discord.utils.get(guild.categories, name=CATEGORY_NAME)
+        if category is None:
+            category = await guild.create_category(CATEGORY_NAME)
 
-    support_role = guild.get_role(SUPPORT_ROLE_ID)
+        support_role = guild.get_role(SUPPORT_ROLE_ID)
 
-    # Emoji je nach Ticket Typ setzen
-    if self.ticket_type == "Bug":
-        emoji = "🐞"
-    elif self.ticket_type == "Bewerbung":
-        emoji = "📋"
-    elif self.ticket_type == "Entbannung":
-        emoji = "🔓"
-    else:
-        emoji = "🎫"
+        if self.ticket_type == "Bug":
+            emoji = "🐞"
+        elif self.ticket_type == "Bewerbung":
+            emoji = "📋"
+        elif self.ticket_type == "Entbannung":
+            emoji = "🔓"
+        else:
+            emoji = "🎫"
 
-    clean_name = user.name.lower().replace(" ", "-")
+        clean_name = user.name.lower().replace(" ", "-")
 
-    channel = await guild.create_text_channel(
-        name=f"{emoji}-{self.ticket_type.lower()}-{clean_name}",
-        category=category
-    )
+        channel = await guild.create_text_channel(
+            name=f"{emoji}-{self.ticket_type.lower()}-{clean_name}",
+            category=category
+        )
 
-    await channel.set_permissions(guild.default_role, read_messages=False)
-    await channel.set_permissions(user, read_messages=True, send_messages=True)
-    await channel.set_permissions(support_role, read_messages=True, send_messages=True)
+        await channel.set_permissions(guild.default_role, read_messages=False)
+        await channel.set_permissions(user, read_messages=True, send_messages=True)
+        await channel.set_permissions(support_role, read_messages=True, send_messages=True)
 
+        embed = discord.Embed(
+            title=f"{self.ticket_type} Ticket",
+            color=discord.Color.green()
+        )
+
+        embed.add_field(name="Von", value=user.mention, inline=False)
+
+        if self.ticket_type == "Bewerbung":
+            embed.add_field(name="Name", value=self.name.value, inline=False)
+            embed.add_field(name="Alter", value=self.alter.value, inline=False)
+            embed.add_field(name="Warum beitreten?", value=self.grund.value, inline=False)
+        else:
+            embed.add_field(name="Anliegen", value=self.frage1.value, inline=False)
+            embed.add_field(name="Details", value=self.frage2.value or "Keine weiteren Angaben", inline=False)
+
+        await channel.send(
+            content=f"{user.mention} {support_role.mention}",
+            embed=embed,
+            view=CloseTicketView()
+        )
+
+        await interaction.response.send_message(
+            f"✅ Ticket erstellt: {channel.mention}",
+            ephemeral=True
+        )
     # ✅ EMBED MUSS AUF DIESER EINRÜCKUNG SEIN
     embed = discord.Embed(
         title=f"{self.ticket_type} Ticket",
